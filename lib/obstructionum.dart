@@ -181,8 +181,8 @@ class Obstructionum {
     String toCrack = args[1];
     SendPort mitte = args[2];
     String probationem = '';
-    do {
       interioreObstructionum.mine();
+      do {
       probationem = HEX.encode(sha512.convert(utf8.encode(json.encode(interioreObstructionum.toJson()))).bytes);
     } while (!probationem.startsWith('0' * interioreObstructionum.obstructionumDifficultas) || !probationem.contains(toCrack));
     mitte.send(Obstructionum(interioreObstructionum, probationem));
@@ -195,13 +195,19 @@ class Obstructionum {
       interioreObstructionum = InterioreObstructionum.fromJson(jsoschon['interioreObstructionum']),
       probationem = jsoschon['probationem'];
 
+  bool isProbationem() {
+    if (probationem == HEX.encode(sha512.convert(utf8.encode(json.encode(interioreObstructionum.toJson()))).bytes)) {
+      return true;
+    }
+    return false;
+  }
   Future salvareIncipio(Directory dir) async {
         File file = await File('${dir.path}${Constantes.fileNomen}0.txt').create( recursive: true );
         interioreSalvare(file);
   }
   Future salvare(Directory dir) async {
     File file = File(dir.path + Constantes.fileNomen + (dir.listSync().length-1).toString() + '.txt');
-      if (await Utils.fileAmnis(file).length-1 >= Constantes.maximeCaudicesFile) {
+      if (await Utils.fileAmnis(file).length > Constantes.maximeCaudicesFile) {
         file = await File(dir.path + Constantes.fileNomen + (dir.listSync().length).toString()  + '.txt').create( recursive: true );
         interioreSalvare(file);
       } else {
@@ -218,7 +224,7 @@ class Obstructionum {
     List<GladiatorInput?> gladiatorInitibus = [];
     List<GladiatorOutput?> gladiatorOutputs = [];
     for (int i = 0; i < directory.listSync().length; i++) {
-         caudices.addAll(await Utils.fileAmnis(File(directory.path + '/caudices_' + i.toString() + '.txt')).map((b) => Obstructionum.fromJson(json.decode(b))).toList());
+       caudices.addAll(await Utils.fileAmnis(File(directory.path + '/caudices_' + i.toString() + '.txt')).map((b) => Obstructionum.fromJson(json.decode(b))).toList());
     }
     caudices.forEach((obstructionum) {
       gladiatorInitibus.add(obstructionum.interioreObstructionum.gladiator.input);
@@ -263,18 +269,19 @@ class Obstructionum {
     return obs.singleWhere((ob) => ob.interioreObstructionum.gladiator.id == gladiatorId).interioreObstructionum.gladiator;
   }
   static int acciperePropterDifficultas(Obstructionum priorObstructionum) {
-    if(priorObstructionum.interioreObstructionum.generare == Generare.INCIPIO || priorObstructionum.interioreObstructionum.generare == Generare.EFECTUS) {
-      if ((priorObstructionum.interioreObstructionum.gladiator.output?.rationem.length ?? 0) < Constantes.perRationesObstructionum) {
-        if ((priorObstructionum.interioreObstructionum.propterDifficultas) > 0) {
+    if (priorObstructionum.interioreObstructionum.generare == Generare.INCIPIO || priorObstructionum.interioreObstructionum.generare == Generare.EFECTUS) {
+      if ((priorObstructionum.interioreObstructionum.gladiator.output?.rationem.length ?? 0) <= Constantes.perRationesObstructionum) {
+        if (priorObstructionum.interioreObstructionum.propterDifficultas > 0) {
           return (priorObstructionum.interioreObstructionum.propterDifficultas + 1);
         } else {
           return 0;
         }
+      } else if (priorObstructionum.interioreObstructionum.propterDifficultas > 0) {
+        return (priorObstructionum.interioreObstructionum.propterDifficultas - 1);
       }
-      return (priorObstructionum.interioreObstructionum.propterDifficultas - 1);
     }
-      return priorObstructionum.interioreObstructionum.propterDifficultas;
-    }
+    return priorObstructionum.interioreObstructionum.propterDifficultas;
+  }
   static int accipereLiberDifficultas(Obstructionum priorObstructionum) {
     if (priorObstructionum.interioreObstructionum.liberTransactions.length < Constantes.txCaudice) {
       if (priorObstructionum.interioreObstructionum.liberDifficultas > 0) {

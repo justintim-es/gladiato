@@ -162,18 +162,24 @@ class Transaction {
     for (TransactionInput input in interioreTransaction.inputs) {
       Obstructionum referObstructionum = obs.singleWhere((o) => o.interioreObstructionum.liberTransactions.any((liber) => liber.interioreTransaction.id == input.transactionId));
       Transaction tx = referObstructionum.interioreObstructionum.liberTransactions.singleWhere((liber) => liber.interioreTransaction.id == input.transactionId);
-      for (TransactionOutput output in tx.interioreTransaction.outputs) {
-        if (!Utils.cognoscere(PublicKey.fromHex(Pera.curve(), output.publicKey), Signature.fromCompactHex(input.signature), output)) {
+        if (!Utils.cognoscere(PublicKey.fromHex(Pera.curve(), tx.interioreTransaction.outputs[input.index].publicKey), Signature.fromASN1Hex(input.signature), tx.interioreTransaction.outputs[input.index])) {
+          print('non subscribere');
           return false;
         }
-        spendable += output.nof;
-      }
+        final inconsumptus = await Pera.inconsumptusOutputs(true, tx.interioreTransaction.outputs[input.index].publicKey, dir);
+        final outputs = inconsumptus.map((x) => x.item3);
+        if (!outputs.contains(tx.interioreTransaction.outputs[input.index])) {
+          print('output iam signatum');
+          return false;
+        }
+        spendable += tx.interioreTransaction.outputs[input.index].nof;
     }
     BigInt spended = BigInt.zero;
     for(TransactionOutput output in interioreTransaction.outputs) {
       spended += output.nof;
     }
     if (spendable != spended) {
+      print('insf');
       return false;
     }
     return true;
@@ -184,12 +190,17 @@ class Transaction {
     for (TransactionInput input in interioreTransaction.inputs) {
       Obstructionum referObstructionum = obs.singleWhere((o) => o.interioreObstructionum.fixumTransactions.any((fixum) => fixum.interioreTransaction.id == input.transactionId));
       Transaction tx = referObstructionum.interioreObstructionum.fixumTransactions.singleWhere((fixum) => fixum.interioreTransaction.id == input.transactionId);
-      for (TransactionOutput output in tx.interioreTransaction.outputs) {
-        if (!Utils.cognoscere(PublicKey.fromHex(Pera.curve(), output.publicKey), Signature.fromCompactHex(input.signature), output)) {
-          return false;
-        }
-        spendable += output.nof;
+      if (!Utils.cognoscere(PublicKey.fromHex(Pera.curve(), tx.interioreTransaction.outputs[input.index].publicKey), Signature.fromCompactHex(input.signature), tx.interioreTransaction.outputs[input.index])) {
+        return false;
       }
+      final inconsumptus = await Pera.inconsumptusOutputs(true, tx.interioreTransaction.outputs[input.index].publicKey, dir);
+      final outputs = inconsumptus.map((x) => x.item3);
+      if (!outputs.contains(tx.interioreTransaction.outputs[input.index])) {
+        print('output iam signatum');
+        return false;
+      }
+      spendable += tx.interioreTransaction.outputs[input.index].nof;
+
     }
     BigInt spended = BigInt.zero;
     for(TransactionOutput output in interioreTransaction.outputs) {

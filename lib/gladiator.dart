@@ -53,6 +53,12 @@ class Propter {
   Propter.fromJson(Map<String, dynamic> jsoschon):
       probationem = jsoschon['probationem'],
       interioreRationem = InterioreRationem.fromJson(jsoschon['interioreRationem']);
+  bool isProbationem() {
+    if (probationem == HEX.encode(sha256.convert(utf8.encode(json.encode(interioreRationem.toJson()))).bytes)) {
+      return true;
+    }
+    return false;
+  }
 }
 
 
@@ -107,7 +113,7 @@ class Gladiator {
         List<Propter> reditus = [];
         for (int i = 64; i >= difficultas; i--) {
           if(reditus.length < Constantes.perRationesObstructionum) {
-            reditus.addAll(propters.where((p) => p.probationem.startsWith('0' * difficultas)));
+            reditus.addAll(propters.where((p) => p.probationem.startsWith('0' * difficultas) && !reditus.contains(p)));
           } else {
             break;
           }

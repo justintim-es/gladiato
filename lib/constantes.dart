@@ -3,7 +3,7 @@ class Constantes {
 
   static int maximeCaudicesFile = 3;
 
-  static int perRationesObstructionum = 1;
+  static int perRationesObstructionum = 10;
 
   static int txCaudice = 2;
 

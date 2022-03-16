@@ -24,19 +24,21 @@ class Utils {
   static bool cognoscere(PublicKey publicaClavis, Signature signature, TransactionOutput txOutput) =>
       verify(publicaClavis, utf8.encode(json.encode(txOutput.toJson())), signature);
 
-  static Future removeDonecObstructionum(Directory directory, List<int> numerus) async {
-    print(numerus);
+  static Future removeDonecObstructionum(Directory directory, List<List<String>> hashes) async {
+    print('removeobs');
+    print(hashes);
     final priorObs = await Utils.priorObstructionum(directory);
     final priorNumerus = priorObs.interioreObstructionum.obstructionumNumerus;
-    while (numerus.length != priorNumerus.length) {
-      for (int i = numerus.length; i < priorNumerus.length; i++) {
-        File file = File('${directory.path}/${Constantes.fileNomen}$i.txt');
-        file.delete();
-      }
-    }
-    File file = File('${directory.path}/${Constantes.fileNomen}${numerus.length-1}.txt');
+    // while (numerus.length != priorNumerus.length) {
+    //   for (int i = numerus.length; i < priorNumerus.length; i++) {
+    //     File file = File('${directory.path}/${Constantes.fileNomen}$i.txt');
+    //     file.delete();
+    //   }
+    // }
+    File file = File('${directory.path}/${Constantes.fileNomen}${hashes.length}.txt');
     final lines = await Utils.fileAmnis(file).toList();
-    lines.removeRange(numerus.last + 1, lines.length);
+    print(lines);
+    // lines.removeRange(numerus.last, directory.listSync().length-1);
     print('lines');
     file.writeAsStringSync('');
     var sink = file.openWrite(mode: FileMode.append);

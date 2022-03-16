@@ -21,6 +21,7 @@ void main(List<String> arguments) async {
     var parser = ArgParser();
     parser.addOption('publica-clavis');
     parser.addOption('bootnode');
+    parser.addOption('max-pares', defaultsTo: '50');
     parser.addOption('p2p-portus', defaultsTo: '5151');
     parser.addOption('rpc-portus', defaultsTo: '1515');
     parser.addOption('internum-ip', mandatory: true);
@@ -37,6 +38,7 @@ void main(List<String> arguments) async {
     final p2pPortus = aschargs['p2p-portus'];
     final internum_ip = aschargs['internum-ip'];
     final externalIp = aschargs['external-ip'];
+    final maxPares = aschargs['max-pares'];
     if(publicaClavis == null) {
         KeyPair kp = KeyPair();
         print('Quaeso te condite privatis ac publicis clavis');
@@ -59,7 +61,8 @@ void main(List<String> arguments) async {
       }
     }
     print(p2pPortus);
-    P2P p2p = P2P(2, principalisDirectory);
+    ReceivePort rp = ReceivePort();
+    P2P p2p = P2P(int.parse(maxPares), principalisDirectory, rp.sendPort, [0]);
     p2p.listen(internum_ip, int.parse(p2pPortus));
     if(bootnode != null) {
       p2p.connect(bootnode, '$externalIp:$p2pPortus');
@@ -132,20 +135,12 @@ void main(List<String> arguments) async {
         "balance": balance.toString()
       }));
     });
+    List<Isolate> efectusThreads = [];
     app.post('/mine-efectus', (Request request) async {
         Obstructionum priorObstructionum = await Utils.priorObstructionum(principalisDirectory);
         ReceivePort acciperePortus = ReceivePort();
-
         List<Propter> propters = [];
-        for (int i = 64; i > 0; i--) {
-          if (p2p.propters.any((r) => r.probationem.startsWith('0' * i))) {
-            if (propters.length < Constantes.perRationesObstructionum) {
-              propters.addAll(p2p.propters.where((r) => r.probationem.startsWith('0' * i)));
-            } else {
-              break;
-            }
-          }
-        }
+        propters.addAll(Gladiator.grab(priorObstructionum.interioreObstructionum.propterDifficultas, p2p.propters));
         List<Transaction> liberTxs = [];
         liberTxs.add(Transaction(Constantes.txObstructionumPraemium, InterioreTransaction(true, 0, [], [TransactionOutput(publicaClavis, Constantes.obstructionumPraemium)], Utils.randomHex(32))));
         print('${liberTxs.map((x) => x.toJson())}\n');
@@ -154,6 +149,45 @@ void main(List<String> arguments) async {
         List<Transaction> fixumTxs = [];
         fixumTxs.addAll(Transaction.grab(priorObstructionum.interioreObstructionum.fixumDifficultas, p2p.fixumTxs));
         final obstructionumDifficultas = await Obstructionum.utDifficultas(principalisDirectory);
+        rp.listen((data) async {
+          Obstructionum priorObstructionum = await Utils.priorObstructionum(principalisDirectory);
+          List<Propter> propters = [];
+          propters.addAll(Gladiator.grab(priorObstructionum.interioreObstructionum.propterDifficultas, p2p.propters));
+          List<Transaction> liberTxs = [];
+          liberTxs.add(Transaction(Constantes.txObstructionumPraemium, InterioreTransaction(true, 0, [], [TransactionOutput(publicaClavis, Constantes.obstructionumPraemium)], Utils.randomHex(32))));
+          print('${liberTxs.map((x) => x.toJson())}\n');
+          liberTxs.addAll(Transaction.grab(priorObstructionum.interioreObstructionum.liberDifficultas, p2p.liberTxs));
+          print('${liberTxs.map((x) => x.toJson())}\n');
+          List<Transaction> fixumTxs = [];
+          fixumTxs.addAll(Transaction.grab(priorObstructionum.interioreObstructionum.fixumDifficultas, p2p.fixumTxs));
+          final obstructionumDifficultas = await Obstructionum.utDifficultas(principalisDirectory);
+          List<Isolate> newThreads = [];
+          int idx = 0;
+            for (Isolate thread in efectusThreads) {
+              thread.kill();
+              efectusThreads.remove(thread);
+              InterioreObstructionum interiore = InterioreObstructionum.efectus(
+                  obstructionumDifficultas: obstructionumDifficultas,
+                  forumCap: await Obstructionum.accipereForumCap(principalisDirectory),
+                  propterDifficultas: Obstructionum.acciperePropterDifficultas(priorObstructionum),
+                  liberDifficultas: Obstructionum.accipereLiberDifficultas(priorObstructionum),
+                  fixumDifficultas: Obstructionum.accipereFixumDifficultas(priorObstructionum),
+                  summaObstructionumDifficultas: await Obstructionum.utSummaDifficultas(principalisDirectory) + BigInt.parse(obstructionumDifficultas.toString()),
+                  obstructionumNumerus: await Obstructionum.utObstructionumNumerus(principalisDirectory),
+                  producentis: publicaClavis,
+                  priorProbationem: priorObstructionum.probationem,
+                  gladiator: Gladiator(null, GladiatorOutput(propters), Utils.randomHex(32)),
+                  liberTransactions: liberTxs,
+                  fixumTransactions: fixumTxs
+              );
+              newThreads.add(await Isolate.spawn(Obstructionum.efectus, List<dynamic>.from([interiore, acciperePortus.sendPort])));
+              if(idx == efectusThreads.length) {
+                newThreads.forEach(efectusThreads.add);
+              }
+              idx++;
+            }
+
+        });
         InterioreObstructionum interiore = InterioreObstructionum.efectus(
             obstructionumDifficultas: obstructionumDifficultas,
             forumCap: await Obstructionum.accipereForumCap(principalisDirectory),
@@ -168,7 +202,7 @@ void main(List<String> arguments) async {
             liberTransactions: liberTxs,
             fixumTransactions: fixumTxs
         );
-        await Isolate.spawn(Obstructionum.efectus, List<dynamic>.from([interiore, acciperePortus.sendPort]));
+        efectusThreads.add(await Isolate.spawn(Obstructionum.efectus, List<dynamic>.from([interiore, acciperePortus.sendPort])));
         acciperePortus.listen((nuntius) async {
             Obstructionum obstructionum = nuntius;
             obstructionum.interioreObstructionum.gladiator.output?.rationem.map((r) => r.interioreRationem.id).forEach((id) => propterIsolates[id]?.kill());
@@ -179,8 +213,20 @@ void main(List<String> arguments) async {
             p2p.removeFixumTxs(obstructionum.interioreObstructionum.fixumTransactions.map((f) => f.interioreTransaction.id).toList());
             p2p.syncBlock(obstructionum);
             await obstructionum.salvare(principalisDirectory);
+            rp.sendPort.send("update miner");
         });
         return Response.ok("");
+    });
+    app.get('/efectus-miner-threads', (Request request) async {
+        return Response.ok(json.encode({
+          'threads': efectusThreads.length
+        }));
+    });
+    app.delete('/stop-efectus-miner', (Request request) async {
+      efectusThreads = [];
+      return Response.ok(json.encode({
+        'message': 'Succesfully stopped efectus miner'
+      }));
     });
     app.post('/mine-confussus', (Request request) async {
       Confussus conf = Confussus.fromJson(json.decode(await request.readAsString()));
@@ -197,17 +243,15 @@ void main(List<String> arguments) async {
       liberTxs.add(Transaction(Constantes.transform, transform.item1));
       List<Transaction> fixumTxs = p2p.fixumTxs;
       fixumTxs.add(Transaction(Constantes.transform, transform.item2));
-      for (int i = 64; i > 0; i--) {
-
-      }
       String toCrack = gladiatorToAttack.output!.defensio;
       for (String def in await Pera.maximeDefensiones(gladiatorToAttack.id, principalisDirectory)) {
         toCrack += def;
       }
+      final obstructionumDifficultas = await Obstructionum.utDifficultas(principalisDirectory);
       InterioreObstructionum interiore = InterioreObstructionum.confussus(
-        obstructionumDifficultas: await Obstructionum.utDifficultas(principalisDirectory),
+        obstructionumDifficultas: obstructionumDifficultas,
         forumCap: await Obstructionum.accipereForumCap(principalisDirectory),
-        summaObstructionumDifficultas: await Obstructionum.utSummaDifficultas(principalisDirectory),
+        summaObstructionumDifficultas: await Obstructionum.utSummaDifficultas(principalisDirectory) + BigInt.parse(obstructionumDifficultas.toString()),
         obstructionumNumerus: await Obstructionum.utObstructionumNumerus(principalisDirectory),
         propterDifficultas: Obstructionum.acciperePropterDifficultas(priorObstructionum),
         liberDifficultas: Obstructionum.accipereLiberDifficultas(priorObstructionum),
