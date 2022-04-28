@@ -26,12 +26,12 @@ class SubmittereRationem {
 class SubmittereTransaction {
   final String from;
   final String to;
-  final BigInt nof;
-  SubmittereTransaction(this.from, this.to, this.nof);
+  final BigInt gla;
+  SubmittereTransaction(this.from, this.to, this.gla);
   SubmittereTransaction.fromJson(Map<String, dynamic> jsoschon):
+    to = jsoschon['to'],
       from = jsoschon['from'],
-      to = jsoschon['to'],
-      nof = BigInt.parse(jsoschon['nof']);
+      gla = BigInt.parse(jsoschon['gla']);
 }
 class RemoveTransaction {
   final bool liber;
@@ -50,4 +50,43 @@ class Confussus {
   Confussus.fromJson(Map<String, dynamic> jsoschon):
   gladiatorId = jsoschon['gladiatorId'],
   privateKey = jsoschon['privateKey'];
+}
+class TransactionInfo {
+  final bool includi;
+  final int? indicatione;
+  final List<int>? obstructionumNumerus;
+  TransactionInfo(this.includi, this.indicatione, this.obstructionumNumerus);
+
+  Map<String, dynamic> toJson() => {
+    'includi': includi,
+    'indicatione': indicatione,
+    'obstructionumNumerus': obstructionumNumerus,
+  };
+}
+class PropterInfo {
+  final bool includi;
+  final int? indicatione;
+  final List<int>? obstructionumNumerus;
+  final String? defensio;
+  PropterInfo(this.includi, this.indicatione, this.obstructionumNumerus, this.defensio);
+
+  Map<String, dynamic> toJson() => {
+    'includi': includi,
+    'indicatione': indicatione,
+    'obstructionumNumerus': obstructionumNumerus,
+    'defensio': defensio,
+  };
+}
+class Probationems {
+  final List<int> firstIndex;
+  final List<int> lastIndex;
+  Probationems(this.firstIndex, this.lastIndex);
+
+  Map<String, dynamic> toJson() => {
+    'firstIndex': firstIndex,
+    'lastIndex': lastIndex
+  };
+  Probationems.fromJson(Map<String, dynamic> jsoschon):
+    firstIndex = List<int>.from(jsoschon['firstIndex']),
+    lastIndex = List<int>.from(jsoschon['lastIndex']);
 }

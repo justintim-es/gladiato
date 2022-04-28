@@ -24,21 +24,17 @@ class Utils {
   static bool cognoscere(PublicKey publicaClavis, Signature signature, TransactionOutput txOutput) =>
       verify(publicaClavis, utf8.encode(json.encode(txOutput.toJson())), signature);
 
-  static Future removeDonecObstructionum(Directory directory, List<List<String>> hashes) async {
-    print('removeobs');
-    print(hashes);
+  static Future removeDonecObstructionum(Directory directory, List<int> numerus) async {
     final priorObs = await Utils.priorObstructionum(directory);
     final priorNumerus = priorObs.interioreObstructionum.obstructionumNumerus;
-    // while (numerus.length != priorNumerus.length) {
-    //   for (int i = numerus.length; i < priorNumerus.length; i++) {
-    //     File file = File('${directory.path}/${Constantes.fileNomen}$i.txt');
-    //     file.delete();
-    //   }
-    // }
-    File file = File('${directory.path}/${Constantes.fileNomen}${hashes.length}.txt');
+    if(numerus.length -1 > directory.listSync().length-1) {
+      for(int i = (numerus.length -1); i < directory.listSync().length-1; i++) {
+        File('${directory.path}/${Constantes.fileNomen}$i').delete();
+      }
+    }
+    File file = File('${directory.path}/${Constantes.fileNomen}${numerus.length-1}.txt');
     final lines = await Utils.fileAmnis(file).toList();
-    print(lines);
-    // lines.removeRange(numerus.last, directory.listSync().length-1);
+    lines.removeRange(numerus.last, lines.length);
     print('lines');
     file.writeAsStringSync('');
     var sink = file.openWrite(mode: FileMode.append);
@@ -47,5 +43,14 @@ class Utils {
       sink.write(line + '\n');
     }
     sink.close();
+  }
+  static Future<List<Obstructionum>> getObstructionums(Directory directory) async {
+    List<Obstructionum> obs = [];
+    for (int i = 0; i < directory.listSync().length; i++) {
+      await for (String obstructionum in Utils.fileAmnis(File('${directory.path}${Constantes.fileNomen}$i.txt'))) {
+        obs.add(Obstructionum.fromJson(json.decode(obstructionum)));
+      }
+    }
+    return obs;
   }
 }

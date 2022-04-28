@@ -131,7 +131,7 @@ class ObstructionumP2PMessage extends P2PMessage {
   ObstructionumP2PMessage(this.obstructionum, this.hashes, String type): super(type);
   ObstructionumP2PMessage.fromJson(Map<String, dynamic> jsoschon):
     obstructionum = Obstructionum.fromJson(jsoschon['obstructionum']),
-    hashes = List<List<String>>.from(jsoschon['hashes']),
+    hashes = List<List<String>>.from(jsoschon['hashes'].map((x) => List<String>.from(x))),
     super.fromJson(jsoschon);
   @override
   Map<String, dynamic> toJson() => {
@@ -199,7 +199,7 @@ class P2P {
           }
         } else if (msg.type == 'remove-propters') {
           RemoveProptersP2PMessage rpp2pm = RemoveProptersP2PMessage.fromJson(json.decode(String.fromCharCodes(data).trim()));
-          propters.removeWhere((p) => rpp2pm.ids.contains(p.interioreRationem.id));
+          propters.removeWhere((p) => rpp2pm.ids.any((id) => id == p.interioreRationem.id));
           client.destroy();
 
         } else if (msg.type == 'liber-tx') {
@@ -226,11 +226,11 @@ class P2P {
           }
         } else if (msg.type == 'remove-liber-txs') {
           RemoveTransactionsP2PMessage rtp2pm = RemoveTransactionsP2PMessage.fromJson(json.decode(String.fromCharCodes(data).trim()));
-          liberTxs.removeWhere((l) => rtp2pm.ids.contains(l.interioreTransaction.id));
+          liberTxs.removeWhere((l) => rtp2pm.ids.any((id) => id == l.interioreTransaction.id));
           client.destroy();
         } else if (msg.type == 'remove-fixum-txs') {
           RemoveTransactionsP2PMessage rtp2pm = RemoveTransactionsP2PMessage.fromJson(json.decode(String.fromCharCodes(data).trim()));
-          fixumTxs.removeWhere((l) => rtp2pm.ids.contains(l.interioreTransaction.id));
+          fixumTxs.removeWhere((l) => rtp2pm.ids.any((id) => id == l.interioreTransaction.id));
           client.destroy();
         } else if (msg.type == 'obstructionum') {
           ObstructionumP2PMessage op2pm = ObstructionumP2PMessage.fromJson(json.decode(String.fromCharCodes(data).trim()));
@@ -316,14 +316,14 @@ class P2P {
                         print("irritum tx");
                         return;
                       } else {
-                        transformAble += tx.interioreTransaction.outputs[input.index].nof;
+                        transformAble += tx.interioreTransaction.outputs[input.index].gla;
                       }
                   }
                 }
                 BigInt transformed = BigInt.zero;
                 for (List<TransactionOutput> outputs in transformOutputs.map((tx) => tx.interioreTransaction.outputs)) {
                   for (TransactionOutput output in outputs) {
-                    transformed += output.nof;
+                    transformed += output.gla;
                   }
                 }
                 if (transformAble != transformed) {
@@ -352,7 +352,8 @@ class P2P {
                     print("outputs arent liceat ad confossum");
                     return;
                   }
-                  List<String> defensiones = await Pera.maximeDefensiones(gladiatorId, dir);
+                  List<Defensio> deschef = await Pera.maximeDefensiones(gladiatorId, dir);
+                  List<String> defensiones = deschef.map((x) => x.defensio).toList();
                   String totalDefence = obs.interioreObstructionum.gladiator.output?.defensio ?? '';
                   for (String def in defensiones) {
                     totalDefence += def;
@@ -389,18 +390,28 @@ class P2P {
                 client.write(json.encode(RequestObstructionumP2PMessage(summaNumerus, 'request-obstructionum')));
                 client.destroy();
                 // await syncBlock(obs);
-              } else if (probationums.any(op2pm.hashes.contains)) {
-                print('here');
-                final lastIndex = probationums.lastIndexWhere((pr) => op2pm.hashes.contains(pr));
-                print('lastindex');
-                print(lastIndex);
-                print(op2pm.hashes[lastIndex]);
-                final List<int> numerus = obss.elementAt(lastIndex).interioreObstructionum.obstructionumNumerus;
-                // await Utils.removeDonecObstructionum(dir, op2pm.hashes);
-
-                client.write(json.encode(RequestObstructionumP2PMessage([0], 'request-obstructionum')));
-
-                // client.destroy();
+              } else {
+                print('one');
+                int idx = 0;
+                final reschev = op2pm.hashes.reversed;
+                for (List<String> hashes in reschev) {
+                  print('two');
+                  final reschevh = hashes.reversed;
+                  if (probationums.any((reschev.contains))) {
+                    print('three');
+                    List<int> numerus = [];
+                    final ischin = hashes.indexWhere(probationums.contains);
+                    print('four');
+                    for (Obstructionum o in obss) {
+                      print('five');
+                      if (o.probationem == op2pm.hashes[ischin]) {
+                        numerus = o.interioreObstructionum.obstructionumNumerus;
+                        await Utils.removeDonecObstructionum(dir, numerus);
+                      }
+                    }
+                    client.write(json.encode(RequestObstructionumP2PMessage(numerus, 'request-obstructionum')));
+                  }
+                }
               }
           }
           }
@@ -461,14 +472,20 @@ class P2P {
     }
   }
   removePropters(List<String> ids) async {
-    propters.removeWhere((p) => ids.contains(p.interioreRationem.id));
+    print(ids);
+    print('rempropters');
+    print(propters);
+    propters.removeWhere((p) => ids.any((i) => i == p.interioreRationem.id));
+    print(propters);
     for (String socket in sockets) {
       Socket soschock = await Socket.connect(socket.split(':')[0], int.parse(socket.split(':')[1]));
       soschock.write(json.encode(RemoveProptersP2PMessage(ids, 'remove-propters').toJson()));
     }
   }
   removeLiberTxs(List<String> ids) async {
-    liberTxs.removeWhere((l) => ids.contains(l.interioreTransaction.id));
+    print(liberTxs);
+    liberTxs.removeWhere((l) => ids.any((i) => i == l.interioreTransaction.id));
+    print(liberTxs);
     for (String socket in sockets) {
       Socket soschock = await Socket.connect(socket.split(':')[0], int.parse(socket.split(':')[1]));
       soschock.write(json.encode(RemoveTransactionsP2PMessage(ids, 'remove-liber-txs').toJson()));
@@ -486,24 +503,24 @@ class P2P {
       Socket soschock = await Socket.connect(socket.split(':')[0], int.parse(socket.split(':')[1]));
       List<List<String>> hashes = [];
       int idx = 0;
-      for (int i = dir.listSync().length-1; i > -1 ; i--) {
+      int total = 0;
+      print('okey');
+      for (int i = 0; i < dir.listSync().length; i++) {
+        hashes.add([]);
         List<String> lines = await Utils.fileAmnis(File('${dir.path}/${Constantes.fileNomen}$i.txt')).toList();
-        for (String line in lines.reversed) {
-          hashes[idx].add(Obstructionum.fromJson(json.decode(line)).probationem);
+        for (String line in lines) {
+          if (total < 100) {
+            hashes[idx].add(Obstructionum.fromJson(json.decode(line)).probationem);
+            total++;
+          }
         }
         idx++;
       }
-      List<List<String>> lines = [];
-      for (int i = dir.listSync().length-1; i > -1 ; i--) {
-        List<String> lischinesches = await Utils.fileAmnis(File('${dir.path}/${Constantes.fileNomen}$i.txt')).toList();
-        // lischinesches.reversed;
-        // lines.addAll([]);
-        for (String lischinesche in lischinesches) {
-          // lines.add(List<String>.from([Obstructionum.fromJson(json.decode(lischinesche)).probationem]));
-        }
-      }
+      print('j');
+      print('lines');
+      print(hashes);
       print('wrote');
-      soschock.write(json.encode(ObstructionumP2PMessage(obs, lines, 'obstructionum').toJson()));
+      soschock.write(json.encode(ObstructionumP2PMessage(obs, hashes, 'obstructionum').toJson()));
       soschock.listen((data) async {
         print('listening');
         // List<List<String>> lines = [];
@@ -520,12 +537,12 @@ class P2P {
           if (rop2pm.numerus.last < Constantes.maximeCaudicesFile) {
             String obs = await Utils.fileAmnis(caudices).elementAt(rop2pm.numerus.last);
             Obstructionum obsObs = Obstructionum.fromJson(json.decode(obs));
-            soschock.write(json.encode(ObstructionumP2PMessage(obsObs, lines, 'obstructionum').toJson()));
+            soschock.write(json.encode(ObstructionumP2PMessage(obsObs, hashes, 'obstructionum').toJson()));
           } else {
             rop2pm.numerus.add(0);
             String obs = await Utils.fileAmnis(caudices).elementAt(rop2pm.numerus.last);
             Obstructionum obsObs = Obstructionum.fromJson(json.decode(obs));
-            soschock.write(json.encode(ObstructionumP2PMessage(obsObs, lines, 'obstructionum').toJson()));
+            soschock.write(json.encode(ObstructionumP2PMessage(obsObs, hashes, 'obstructionum').toJson()));
           }
         // } else {
           // await soschock.close();

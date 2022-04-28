@@ -1,7 +1,7 @@
 class Constantes {
   static BigInt obstructionumPraemium = BigInt.parse('1000000000000000000000000000000000000000000000000000');
 
-  static int maximeCaudicesFile = 3;
+  static int maximeCaudicesFile = 2;
 
   static int perRationesObstructionum = 10;
 

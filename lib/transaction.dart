@@ -27,27 +27,26 @@ class TransactionInput {
 }
 class TransactionOutput {
   final String publicKey;
-  final BigInt nof;
-  TransactionOutput(this.publicKey, this.nof);
+  final BigInt gla;
+  TransactionOutput(this.publicKey, this.gla);
   Map<String, dynamic> toJson() => {
     'publicKey': publicKey,
-    'nof': nof.toString()
+    'gla': gla.toString()
   };
   TransactionOutput.fromJson(Map<String, dynamic> jsoschon):
       publicKey = jsoschon['publicKey'],
-      nof = BigInt.parse(jsoschon['nof']);
+      gla = BigInt.parse(jsoschon['gla']);
 }
 
 
 class InterioreTransaction {
   final bool liber;
-  final int zeros;
   final List<TransactionInput> inputs;
   final List<TransactionOutput> outputs;
   final String random;
   final String id;
   BigInt nonce;
-  InterioreTransaction(this.liber, this.zeros, this.inputs, this.outputs, this.random):
+  InterioreTransaction(this.liber, this.inputs, this.outputs, this.random):
         nonce = BigInt.zero,
         id = HEX.encode(
             sha512.convert(
@@ -64,7 +63,6 @@ class InterioreTransaction {
     'inputs': inputs.map((i) => i.toJson()).toList(),
     'outputs': outputs.map((o) =>  o.toJson()).toList(),
     'random': random,
-    'zeros': zeros,
     'id': id,
     'nonce': nonce.toString(),
   };
@@ -73,7 +71,6 @@ class InterioreTransaction {
       inputs = List<TransactionInput>.from(jsoschon['inputs'].map((i) => TransactionInput.fromJson(i))),
       outputs = List<TransactionOutput>.from(jsoschon['outputs'].map((o) => TransactionOutput.fromJson(o))),
       random = jsoschon['random'],
-      zeros = jsoschon['zeros'],
       id = jsoschon['id'],
       nonce = BigInt.parse(jsoschon['nonce']);
 }
@@ -104,7 +101,7 @@ class Transaction {
     if (interioreTransaction.outputs.length != 1) {
       return false;
     }
-    if (interioreTransaction.outputs[0].nof != Constantes.obstructionumPraemium) {
+    if (interioreTransaction.outputs[0].gla != Constantes.obstructionumPraemium) {
       return false;
     }
     if (interioreTransaction.inputs.isNotEmpty) {
@@ -120,14 +117,14 @@ class Transaction {
     for (TransactionInput input in obstructionum.interioreObstructionum.liberTransactions.singleWhere((liber) => liber.interioreTransaction.id == interioreTransaction.id).interioreTransaction.inputs) {
       Obstructionum prevObs = obs.singleWhere((ob) => ob.interioreObstructionum.liberTransactions.any((liber) => liber.interioreTransaction.id == input.transactionId));
       TransactionOutput output = prevObs.interioreObstructionum.liberTransactions.singleWhere((liber) => liber.interioreTransaction.id == input.transactionId).interioreTransaction.outputs[input.index];
-      spendable += output.nof;
+      spendable += output.gla;
       if (!Utils.cognoscere(PublicKey.fromHex(Pera.curve(), obstructionum.interioreObstructionum.producentis), Signature.fromCompactHex(input.signature), output)) {
         return false;
       }
     }
     BigInt isSpended = BigInt.zero;
     for (TransactionOutput output in obstructionum.interioreObstructionum.liberTransactions.singleWhere((liber) => liber.interioreTransaction.id == interioreTransaction.id).interioreTransaction.outputs) {
-      isSpended += output.nof;
+      isSpended += output.gla;
     }
     if (spendable > isSpended) {
       return false;
@@ -172,11 +169,11 @@ class Transaction {
           print('output iam signatum');
           return false;
         }
-        spendable += tx.interioreTransaction.outputs[input.index].nof;
+        spendable += tx.interioreTransaction.outputs[input.index].gla;
     }
     BigInt spended = BigInt.zero;
     for(TransactionOutput output in interioreTransaction.outputs) {
-      spended += output.nof;
+      spended += output.gla;
     }
     if (spendable != spended) {
       print('insf');
@@ -199,12 +196,12 @@ class Transaction {
         print('output iam signatum');
         return false;
       }
-      spendable += tx.interioreTransaction.outputs[input.index].nof;
+      spendable += tx.interioreTransaction.outputs[input.index].gla;
 
     }
     BigInt spended = BigInt.zero;
     for(TransactionOutput output in interioreTransaction.outputs) {
-      spended += output.nof;
+      spended += output.gla;
     }
     if (spendable != spended) {
       return false;

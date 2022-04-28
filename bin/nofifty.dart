@@ -17,6 +17,9 @@ import 'package:ecdsa/ecdsa.dart';
 import 'package:elliptic/elliptic.dart';
 import 'package:tuple/tuple.dart';
 import 'package:nofifty/p2p.dart';
+import 'package:nofifty/errors.dart';
+import 'package:nofifty/ws.dart';
+import 'package:collection/collection.dart';
 void main(List<String> arguments) async {
     var parser = ArgParser();
     parser.addOption('publica-clavis');
@@ -47,6 +50,7 @@ void main(List<String> arguments) async {
         exit(0);
     }
     Directory principalisDirectory = await Directory(directory).create( recursive: true );
+    print(principalisDirectory.listSync().length);
     if(isNew == 'true' && principalisDirectory.listSync().isEmpty) {
       final obstructionum = Obstructionum.incipio(InterioreObstructionum.incipio(producentis: publicaClavis));
       await obstructionum.salvareIncipio(principalisDirectory);
@@ -81,37 +85,120 @@ void main(List<String> arguments) async {
                 "message": "Publica clavis iam defendi"
             }));
         }
+        for (Propter prop in p2p.propters) {
+          if (prop.interioreRationem.publicaClavis == submittereRationem.publicaClavis) {
+            return Response.forbidden(json.encode({
+                "message": "publica clavem iam in piscinam"
+            }));
+          }
+        }
         ReceivePort acciperePortus = ReceivePort();
         InterioreRationem interioreRationem = InterioreRationem(submittereRationem.publicaClavis, BigInt.zero);
         propterIsolates[interioreRationem.id] = await Isolate.spawn(Propter.quaestum, List<dynamic>.from([interioreRationem, acciperePortus.sendPort]));
         acciperePortus.listen((propter) {
+            print('listentriggeredrationem');
             p2p.syncPropter(propter);
         });
-        return Response.ok("");
+        return Response.ok(json.encode({
+          "propterIdentitatis": interioreRationem.id
+        }));
+    });
+    app.get('/rationem/<identitatis>', (Request request, String identitatis) async {
+      List<Obstructionum> obs = [];
+      for (int i = 0; i < principalisDirectory.listSync().length; i++) {
+        await for (String obstructionum in Utils.fileAmnis(File('${principalisDirectory.path}${Constantes.fileNomen}$i.txt'))) {
+          obs.add(Obstructionum.fromJson(json.decode(obstructionum)));
+        }
+      }
+      for (InterioreObstructionum interiore in obs.map((o) => o.interioreObstructionum)) {
+        for (Propter propter in interiore.gladiator.output?.rationem ?? []) {
+          if (propter.interioreRationem.id == identitatis) {
+            PropterInfo propterInfo = PropterInfo(true, interiore.indicatione, interiore.obstructionumNumerus, interiore.gladiator.output!.defensio);
+            return Response.ok(json.encode({
+                "data": propterInfo.toJson(),
+                "scriptum": interiore.gladiator.toJson(),
+                "gladiatorId": interiore.gladiator.id
+            }));
+          }
+        }
+      }
+      for (Propter propter in p2p.propters) {
+        if (propter.interioreRationem.id == identitatis) {
+          PropterInfo propterInfo = PropterInfo(false, null, null, null);
+          return Response.ok(json.encode({
+            "data": propterInfo.toJson(),
+            "scriptum": propter.toJson()
+          }));
+        }
+      }
+      return Response.notFound(json.encode({
+        "code": 0,
+        "message": "Propter not found"
+      }));
+    });
+    app.get('/novus-propter', (Request request) {
+        KeyPair kp = KeyPair();
+        return Response.ok(json.encode({
+          "publicaClavis": kp.public,
+          "privatusClavis": kp.private
+        }));
+    });
+    app.get('/defenditur/<publica>', (Request request, String publica) async {
+        if (!await Pera.isPublicaClavisDefended(publica, principalisDirectory)) {
+          return Response.ok(json.encode({
+            "defenditur": true,
+            "message": "publica clavis defenditur"
+          }));
+        } else {
+          return Response.ok(json.encode({
+            "defenditur": false,
+             "message": "publica clavis non defenditur"
+          }));
+        }
     });
     app.get('/rationem-stagnum', (Request request) async {
       return Response.ok(json.encode(p2p.propters));
     });
     Map<String, Isolate> liberTxIsolates = Map();
-    app.post('/submittere-libre-transaction', (Request request) async {
-        final SubmittereTransaction unCalcTx = SubmittereTransaction.fromJson(json.decode(await request.readAsString()));
-        if (await Pera.isPublicaClavisDefended(unCalcTx.to, principalisDirectory) && !await Pera.isProbationum(unCalcTx.to, principalisDirectory)) {
-            return Response.forbidden(json.encode({
-                "message": "accipientis non defenditur"
-            }));
+    app.post('/submittere-liber-transaction', (Request request) async {
+        try {
+          final SubmittereTransaction unCalcTx = SubmittereTransaction.fromJson(json.decode(await request.readAsString()));
+          PrivateKey pk = PrivateKey.fromHex(Pera.curve(), unCalcTx.from);
+          if (pk.publicKey.toHex() == unCalcTx.to) {
+            return Response.forbidden(json.encode(Error(code: 2, message: "potest mittere pecuniam publicam clavem", english: "can not send money to the same public key" ).toJson()));
+          }
+          if (await Pera.isPublicaClavisDefended(unCalcTx.to, principalisDirectory) && !await Pera.isProbationum(unCalcTx.to, principalisDirectory)) {
+              return Response.forbidden(json.encode(Error(
+                  code: 0,
+                  message: "accipientis non defenditur",
+                   english: "public key is not defended"
+              ).toJson()));
+          }
+          final InterioreTransaction tx =
+          await Pera.novamRem(true, 0, unCalcTx.from, unCalcTx.gla, unCalcTx.to, p2p.liberTxs, principalisDirectory);
+          ReceivePort acciperePortus = ReceivePort();
+          liberTxIsolates[tx.id] = await Isolate.spawn(Transaction.quaestum, List<dynamic>.from([tx, acciperePortus.sendPort]));
+          acciperePortus.listen((transaction) {
+              p2p.syncLiberTx(transaction);
+          });
+          return Response.ok(json.encode({
+            "transactionIdentitatis": tx.id
+          }));
+        } on Error catch (err) {
+          return Response.forbidden(json.encode(err.toJson()));
         }
-        final InterioreTransaction tx = await Pera.novamRem(true, 0, unCalcTx.from, unCalcTx.nof, unCalcTx.to, p2p.liberTxs, principalisDirectory);
-        ReceivePort acciperePortus = ReceivePort();
-        liberTxIsolates[tx.id] = await Isolate.spawn(Transaction.quaestum, List<dynamic>.from([tx, acciperePortus.sendPort]));
-        acciperePortus.listen((transaction) {
-            p2p.syncLiberTx(transaction);
-        });
-        return Response.ok("");
     });
     Map<String, Isolate> fixumTxIsolates = Map();
     app.post('/submittere-fixum-transaction', (Request request) async {
       final SubmittereTransaction unCalcTx = SubmittereTransaction.fromJson(json.decode(await request.readAsString()));
-      final InterioreTransaction tx = await Pera.novamRem(false, 0, unCalcTx.from, unCalcTx.nof, unCalcTx.to, p2p.fixumTxs, principalisDirectory);
+      PrivateKey pk = PrivateKey.fromHex(Pera.curve(), unCalcTx.from);
+      if (pk.publicKey.toHex() == unCalcTx.to) {
+        return Response.ok(json.encode({
+          "message": "potest mittere pecuniam publicam clavem",
+          "english": "can not send money to the same public key"
+        }));
+      }
+      final InterioreTransaction tx = await Pera.novamRem(false, 0, unCalcTx.from, unCalcTx.gla, unCalcTx.to, p2p.fixumTxs, principalisDirectory);
       ReceivePort acciperePortus = ReceivePort();
       fixumTxIsolates[tx.id] = await Isolate.spawn(Transaction.quaestum, List<dynamic>.from([tx, acciperePortus.sendPort]));
       acciperePortus.listen((transaction) {
@@ -119,75 +206,155 @@ void main(List<String> arguments) async {
       });
       return Response.ok("");
     });
+    app.get('/transaction/<identitatis>', (Request request, String identitatis) async {
+        List<Obstructionum> obs = [];
+        for (int i = 0; i < principalisDirectory.listSync().length; i++) {
+          await for (String obstructionum in Utils.fileAmnis(File('${principalisDirectory.path}${Constantes.fileNomen}$i.txt'))) {
+            obs.add(Obstructionum.fromJson(json.decode(obstructionum)));
+          }
+        }
+        for (InterioreObstructionum interiore in obs.map((o) => o.interioreObstructionum)) {
+          for (Transaction tx in interiore.liberTransactions) {
+            if (tx.interioreTransaction.id == identitatis) {
+              TransactionInfo txInfo = TransactionInfo(true, interiore.indicatione, interiore.obstructionumNumerus);
+              return Response.ok(json.encode({
+                  "data": txInfo.toJson(),
+                  "scriptum": tx.toJson()
+              }));
+            }
+          }
+          for (Transaction tx in interiore.fixumTransactions) {
+            if (tx.interioreTransaction.id == identitatis) {
+              TransactionInfo txInfo = TransactionInfo(false, interiore.indicatione, interiore.obstructionumNumerus);
+              return Response.ok(json.encode({
+                "data": txInfo.toJson(),
+                "scriptum": tx.toJson()
+              }));
+            }
+          }
+        }
+        for (Transaction tx in p2p.liberTxs) {
+          if (tx.interioreTransaction.id == identitatis) {
+            TransactionInfo txInfo = TransactionInfo(false, null, null);
+            return Response.ok(json.encode({
+              "data": txInfo.toJson(),
+              "scriptum": tx.toJson()
+            }));
+          }
+        }
+        for (Transaction tx in p2p.fixumTxs) {
+          if (tx.interioreTransaction.id == identitatis) {
+            TransactionInfo txInfo = TransactionInfo(false, null, null);
+            return Response.ok(json.encode({
+              "data": txInfo.toJson(),
+              "scriptum": tx.toJson()
+            }));
+          }
+        }
+        return Response.notFound(json.encode({
+          "code": 0,
+          "message": "Transaction not found"
+        }));
+    });
     app.get('/peers', (Request request) async {
       return Response.ok(json.encode(p2p.sockets));
     });
-    app.get('/libre-transaction-stagnum', (Request request) async {
+    app.get('/liber-transaction-stagnum', (Request request) async {
        return Response.ok(json.encode(p2p.liberTxs.map((e) => e.toJson()).toList()));
     });
     app.get('/defensiones/<gladiatorId>', (Request request, String gladiatorId) async {
-        List<String> def = await Pera.maximeDefensiones(gladiatorId, principalisDirectory);
-        return Response.ok(json.encode(def));
+        List<Defensio> def = await Pera.maximeDefensiones(gladiatorId, principalisDirectory);
+        return Response.ok(json.encode(def.map((x) => x.toJson()).toList()));
+    });
+    app.get('/your-bid-defensio/<probationem>/<gladiatorId>', (Request request, String probationem, String gladiatorId) async {
+        final yourBid = await Pera.yourBid(probationem, gladiatorId, principalisDirectory);
+        return Response.ok(json.encode({
+          "defensio": await Pera.basisDefensione(probationem, principalisDirectory),
+          "yourBid": yourBid.toString(),
+          "probationem": probationem
+        }));
+    });
+    app.get('/summa-bid-defensio/<probationem>', (Request request, String probationem) async {
+      try {
+        BigInt summaBid = await Pera.summaBid(probationem, principalisDirectory);
+        return Response.ok(json.encode({
+          "defensio": await Pera.basisDefensione(probationem, principalisDirectory),
+          "summaBid": summaBid.toString(),
+          "probationem": probationem
+        }));
+      } on Error catch (err) {
+        return Response.forbidden(json.encode(err.toJson()));
+      }
     });
     app.get('/liber-statera/<publica>', (Request request, String publica) async {
-      BigInt balance = await Pera.statera(true, publica, principalisDirectory);
+      BigInt statera = await Pera.statera(true, publica, principalisDirectory);
       return Response.ok(json.encode({
-        "balance": balance.toString()
+        "statera": statera.toString()
+      }));
+    });
+    app.get('/fixum-statera/<publica>', (Request request, String publica) async {
+      BigInt statera = await Pera.statera(false, publica, principalisDirectory);
+      return Response.ok(json.encode({
+        "statera": statera.toString()
       }));
     });
     List<Isolate> efectusThreads = [];
     app.post('/mine-efectus', (Request request) async {
+        if (!File('${principalisDirectory.path}/${Constantes.fileNomen}0.txt').existsSync()) {
+          return Response.ok(json.encode({
+              "message": "Still waiting on incipio block"
+          }));
+        }
         Obstructionum priorObstructionum = await Utils.priorObstructionum(principalisDirectory);
         ReceivePort acciperePortus = ReceivePort();
         List<Propter> propters = [];
         propters.addAll(Gladiator.grab(priorObstructionum.interioreObstructionum.propterDifficultas, p2p.propters));
         List<Transaction> liberTxs = [];
-        liberTxs.add(Transaction(Constantes.txObstructionumPraemium, InterioreTransaction(true, 0, [], [TransactionOutput(publicaClavis, Constantes.obstructionumPraemium)], Utils.randomHex(32))));
+        liberTxs.add(Transaction(Constantes.txObstructionumPraemium, InterioreTransaction(true, [], [TransactionOutput(publicaClavis, Constantes.obstructionumPraemium)], Utils.randomHex(32))));
         print('${liberTxs.map((x) => x.toJson())}\n');
         liberTxs.addAll(Transaction.grab(priorObstructionum.interioreObstructionum.liberDifficultas, p2p.liberTxs));
         print('${liberTxs.map((x) => x.toJson())}\n');
         List<Transaction> fixumTxs = [];
         fixumTxs.addAll(Transaction.grab(priorObstructionum.interioreObstructionum.fixumDifficultas, p2p.fixumTxs));
         final obstructionumDifficultas = await Obstructionum.utDifficultas(principalisDirectory);
-        rp.listen((data) async {
-          Obstructionum priorObstructionum = await Utils.priorObstructionum(principalisDirectory);
-          List<Propter> propters = [];
-          propters.addAll(Gladiator.grab(priorObstructionum.interioreObstructionum.propterDifficultas, p2p.propters));
-          List<Transaction> liberTxs = [];
-          liberTxs.add(Transaction(Constantes.txObstructionumPraemium, InterioreTransaction(true, 0, [], [TransactionOutput(publicaClavis, Constantes.obstructionumPraemium)], Utils.randomHex(32))));
-          print('${liberTxs.map((x) => x.toJson())}\n');
-          liberTxs.addAll(Transaction.grab(priorObstructionum.interioreObstructionum.liberDifficultas, p2p.liberTxs));
-          print('${liberTxs.map((x) => x.toJson())}\n');
-          List<Transaction> fixumTxs = [];
-          fixumTxs.addAll(Transaction.grab(priorObstructionum.interioreObstructionum.fixumDifficultas, p2p.fixumTxs));
-          final obstructionumDifficultas = await Obstructionum.utDifficultas(principalisDirectory);
-          List<Isolate> newThreads = [];
-          int idx = 0;
-            for (Isolate thread in efectusThreads) {
-              thread.kill();
-              efectusThreads.remove(thread);
-              InterioreObstructionum interiore = InterioreObstructionum.efectus(
-                  obstructionumDifficultas: obstructionumDifficultas,
-                  forumCap: await Obstructionum.accipereForumCap(principalisDirectory),
-                  propterDifficultas: Obstructionum.acciperePropterDifficultas(priorObstructionum),
-                  liberDifficultas: Obstructionum.accipereLiberDifficultas(priorObstructionum),
-                  fixumDifficultas: Obstructionum.accipereFixumDifficultas(priorObstructionum),
-                  summaObstructionumDifficultas: await Obstructionum.utSummaDifficultas(principalisDirectory) + BigInt.parse(obstructionumDifficultas.toString()),
-                  obstructionumNumerus: await Obstructionum.utObstructionumNumerus(principalisDirectory),
-                  producentis: publicaClavis,
-                  priorProbationem: priorObstructionum.probationem,
-                  gladiator: Gladiator(null, GladiatorOutput(propters), Utils.randomHex(32)),
-                  liberTransactions: liberTxs,
-                  fixumTransactions: fixumTxs
-              );
-              newThreads.add(await Isolate.spawn(Obstructionum.efectus, List<dynamic>.from([interiore, acciperePortus.sendPort])));
-              if(idx == efectusThreads.length) {
-                newThreads.forEach(efectusThreads.add);
-              }
-              idx++;
-            }
-
-        });
+        // rp.listen((data) async {
+        //   Obstructionum priorObstructionum = await Utils.priorObstructionum(principalisDirectory);
+        //   List<Propter> propters = [];
+        //   propters.addAll(Gladiator.grab(priorObstructionum.interioreObstructionum.propterDifficultas, p2p.propters));
+        //   List<Transaction> liberTxs = [];
+        //   liberTxs.add(Transaction(Constantes.txObstructionumPraemium, InterioreTransaction(true, 0, [], [TransactionOutput(publicaClavis, Constantes.obstructionumPraemium)], Utils.randomHex(32))));
+        //   print('${liberTxs.map((x) => x.toJson())}\n');
+        //   liberTxs.addAll(Transaction.grab(priorObstructionum.interioreObstructionum.liberDifficultas, p2p.liberTxs));
+        //   print('${liberTxs.map((x) => x.toJson())}\n');
+        //   List<Transaction> fixumTxs = [];
+        //   fixumTxs.addAll(Transaction.grab(priorObstructionum.interioreObstructionum.fixumDifficultas, p2p.fixumTxs));
+        //   final obstructionumDifficultas = await Obstructionum.utDifficultas(principalisDirectory);
+        //   List<Isolate> newThreads = [];
+        //   int idx = 0;
+        //     for (Isolate thread in efectusThreads) {
+        //       thread.kill();
+        //       efectusThreads.remove(thread);
+        //       InterioreObstructionum interiore = InterioreObstructionum.efectus(
+        //           obstructionumDifficultas: obstructionumDifficultas,
+        //           forumCap: await Obstructionum.accipereForumCap(principalisDirectory),
+        //           propterDifficultas: Obstructionum.acciperePropterDifficultas(priorObstructionum),
+        //           liberDifficultas: Obstructionum.accipereLiberDifficultas(priorObstructionum),
+        //           fixumDifficultas: Obstructionum.accipereFixumDifficultas(priorObstructionum),
+        //           summaObstructionumDifficultas: await Obstructionum.utSummaDifficultas(principalisDirectory) + BigInt.parse(obstructionumDifficultas.toString()),
+        //           obstructionumNumerus: await Obstructionum.utObstructionumNumerus(principalisDirectory),
+        //           producentis: publicaClavis,
+        //           priorProbationem: priorObstructionum.probationem,
+        //           gladiator: Gladiator(null, GladiatorOutput(propters), Utils.randomHex(32)),
+        //           liberTransactions: liberTxs,
+        //           fixumTransactions: fixumTxs
+        //       );
+        //       newThreads.add(await Isolate.spawn(Obstructionum.efectus, List<dynamic>.from([interiore, acciperePortus.sendPort])));
+        //       if(idx == efectusThreads.length) {
+        //         newThreads.forEach(efectusThreads.add);
+        //       }
+        //       idx++;
+        //     }
+        // });
         InterioreObstructionum interiore = InterioreObstructionum.efectus(
             obstructionumDifficultas: obstructionumDifficultas,
             forumCap: await Obstructionum.accipereForumCap(principalisDirectory),
@@ -205,17 +372,38 @@ void main(List<String> arguments) async {
         efectusThreads.add(await Isolate.spawn(Obstructionum.efectus, List<dynamic>.from([interiore, acciperePortus.sendPort])));
         acciperePortus.listen((nuntius) async {
             Obstructionum obstructionum = nuntius;
-            obstructionum.interioreObstructionum.gladiator.output?.rationem.map((r) => r.interioreRationem.id).forEach((id) => propterIsolates[id]?.kill());
-            obstructionum.interioreObstructionum.liberTransactions.map((e) => e.interioreTransaction.id).forEach((id) => liberTxIsolates[id]?.kill());
-            obstructionum.interioreObstructionum.fixumTransactions.map((e) => e.interioreTransaction.id).forEach((id) => fixumTxIsolates[id]?.kill());
+            obstructionum.interioreObstructionum.gladiator.output?.rationem.map((r) => r.interioreRationem.id).forEach((id) => propterIsolates[id]?.kill(priority: Isolate.immediate));
+            obstructionum.interioreObstructionum.liberTransactions.map((e) => e.interioreTransaction.id).forEach((id) => liberTxIsolates[id]?.kill(priority: Isolate.immediate));
+            obstructionum.interioreObstructionum.fixumTransactions.map((e) => e.interioreTransaction.id).forEach((id) => fixumTxIsolates[id]?.kill(priority: Isolate.immediate));
             p2p.removePropters(obstructionum.interioreObstructionum.gladiator.output?.rationem.map((r) => r.interioreRationem.id).toList() ?? []);
             p2p.removeLiberTxs(obstructionum.interioreObstructionum.liberTransactions.map((l) => l.interioreTransaction.id).toList());
             p2p.removeFixumTxs(obstructionum.interioreObstructionum.fixumTransactions.map((f) => f.interioreTransaction.id).toList());
             p2p.syncBlock(obstructionum);
             await obstructionum.salvare(principalisDirectory);
-            rp.sendPort.send("update miner");
+            // rp.sendPort.send("update miner");
         });
         return Response.ok("");
+    });
+    app.post('/probationems', (Request request) async {
+      final Probationems prop = Probationems.fromJson(json.decode(await request.readAsString()));
+      List<Obstructionum> obs = await Utils.getObstructionums(principalisDirectory);
+      int start = 0;
+      int end = 0;
+      for (int i = 0; i < obs.length; i++) {
+        if (ListEquality().equals(obs[i].interioreObstructionum.obstructionumNumerus, prop.firstIndex)) {
+          start = i;
+        }
+        if (ListEquality().equals(obs[i].interioreObstructionum.obstructionumNumerus, prop.lastIndex)) {
+          end = i;
+        }
+      }
+      return Response.ok(json.encode(obs.map((o) => o.probationem).toList().getRange(start, end).toList()));
+    });
+    app.get('/obstructionum-numerus', (Request request) async {
+        final Obstructionum obs = await Utils.priorObstructionum(principalisDirectory);
+        return Response.ok(json.encode({
+          "numerus": obs.interioreObstructionum.obstructionumNumerus
+        }));
     });
     app.get('/efectus-miner-threads', (Request request) async {
         return Response.ok(json.encode({
@@ -224,6 +412,7 @@ void main(List<String> arguments) async {
     });
     app.delete('/stop-efectus-miner', (Request request) async {
       efectusThreads = [];
+      rp.close();
       return Response.ok(json.encode({
         'message': 'Succesfully stopped efectus miner'
       }));
@@ -243,10 +432,9 @@ void main(List<String> arguments) async {
       liberTxs.add(Transaction(Constantes.transform, transform.item1));
       List<Transaction> fixumTxs = p2p.fixumTxs;
       fixumTxs.add(Transaction(Constantes.transform, transform.item2));
-      String toCrack = gladiatorToAttack.output!.defensio;
-      for (String def in await Pera.maximeDefensiones(gladiatorToAttack.id, principalisDirectory)) {
-        toCrack += def;
-      }
+      List<Defensio> deschef = await Pera.maximeDefensiones(gladiatorToAttack.id, principalisDirectory);
+      List<String> toCrack = deschef.map((e) => e.defensio).toList();
+      toCrack.add(gladiatorToAttack.output!.defensio);
       final obstructionumDifficultas = await Obstructionum.utDifficultas(principalisDirectory);
       InterioreObstructionum interiore = InterioreObstructionum.confussus(
         obstructionumDifficultas: obstructionumDifficultas,
@@ -264,9 +452,9 @@ void main(List<String> arguments) async {
       );
       ReceivePort acciperePortus = ReceivePort();
       await Isolate.spawn(Obstructionum.confussus, List<dynamic>.from([interiore, toCrack, acciperePortus.sendPort]));
-      GladiatorOutput go = interiore.gladiator.output ?? GladiatorOutput([]);
       acciperePortus.listen((nuntius) async {
           Obstructionum obstructionum = nuntius;
+          print(obstructionum.toJson());
           obstructionum.interioreObstructionum.gladiator.output?.rationem.map((r) => r.interioreRationem.id).forEach((id) => propterIsolates[id]?.kill());
           obstructionum.interioreObstructionum.liberTransactions.map((e) => e.interioreTransaction.id).forEach((id) => liberTxIsolates[id]?.kill());
           obstructionum.interioreObstructionum.fixumTransactions.map((e) => e.interioreTransaction.id).forEach((id) => fixumTxIsolates[id]?.kill());

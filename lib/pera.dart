@@ -10,6 +10,16 @@ import 'package:ecdsa/ecdsa.dart';
 import 'package:elliptic/elliptic.dart';
 import 'package:nofifty/constantes.dart';
 import 'package:nofifty/gladiator.dart';
+import 'package:nofifty/errors.dart';
+class Defensio {
+  final String defensio;
+  final String probationem;
+  Defensio(this.defensio, this.probationem);
+  Map<String, dynamic> toJson() => {
+    'defensio': defensio,
+    'probationem': probationem
+  };
+}
 class Pera {
    static EllipticCurve curve() => getP256();
    static Future<bool> isProbationum(String probationum, Directory directory) async {
@@ -31,12 +41,58 @@ class Pera {
             if (output.rationem.where((e) => e.interioreRationem.publicaClavis.contains(publicaClavis)).isNotEmpty) {
                return false;
             }
-         }
-      }
+          }
+       }
       return true;
    }
-   static Future<List<String>> maximeDefensiones(String gladiatorId, Directory directory) async {
-      List<String> def = [];
+   static Future<String> basisDefensione(String probationem, Directory directory) async {
+     for (int i = 0; i < directory.listSync().length; i++) {
+       await for (String line in Utils.fileAmnis(File('${directory.path}${Constantes.fileNomen}$i.txt'))) {
+         Obstructionum obs = Obstructionum.fromJson(json.decode(line));
+         if (obs.probationem == probationem) {
+           return obs.interioreObstructionum.defensio;
+         }
+       }
+     }
+     throw Error(code: 0, message: "probationem non inveni", english: "proof not found");
+   }
+   static Future<BigInt> yourBid(String probationem, String gladiatorId, Directory directory) async {
+     Map<String, BigInt> bid = await defensiones(gladiatorId, directory);
+     for (String key in bid.keys) {
+       if (key == probationem) {
+         return bid[key] ?? BigInt.zero;
+       }
+     }
+     return BigInt.zero;
+   }
+   static Future<BigInt> summaBid(String probationem, Directory directory) async {
+     List<Map<String, BigInt>> maschaps = [];
+     List<String> gladiatorIds = [];
+     for (int i = 0; i < directory.listSync().length; i++) {
+       await for (String line in Utils.fileAmnis(File('${directory.path}${Constantes.fileNomen}$i.txt'))) {
+         Obstructionum obs = Obstructionum.fromJson(json.decode(line));
+         gladiatorIds.add(obs.interioreObstructionum.gladiator.id);
+       }
+     }
+     for (String gid in gladiatorIds) {
+       maschaps.add(await defensiones(gid, directory));
+     }
+     for (Map<String, BigInt> maschap in maschaps) {
+       print(maschap.keys);
+
+     }
+     BigInt highestBid = BigInt.zero;
+     for (Map<String, BigInt> maschap in maschaps) {
+       for (String key in maschap.keys.where((k) => k == probationem)) {
+         if ((maschap[key] ??= BigInt.zero) >= highestBid) {
+           highestBid = maschap[key] ?? BigInt.zero;
+         }
+       }
+     }
+     return highestBid;
+   }
+   static Future<List<Defensio>> maximeDefensiones(String gladiatorId, Directory directory) async {
+      List<Defensio> def = [];
       Map<String, BigInt> ours = Map();
       List<Map<String, BigInt>> others = [];
       List<Obstructionum> obss = [];
@@ -46,6 +102,7 @@ class Pera {
             obss.add(obs);
             if (obs.interioreObstructionum.gladiator.id == gladiatorId) {
                ours = await defensiones(gladiatorId, directory);
+               def.add(Defensio(obs.interioreObstructionum.gladiator.output?.defensio ?? "", obs.probationem));
             } else {
                others.add(await defensiones(obs.interioreObstructionum.gladiator.id, directory));
             }
@@ -64,7 +121,7 @@ class Pera {
         }
       }
       for(String key in payedMore.keys) {
-        def.add(obss.singleWhere((obs) => obs.probationem == key).interioreObstructionum.defensio);
+        def.add(Defensio(obss.singleWhere((obs) => obs.probationem == key).interioreObstructionum.defensio, key));
       }
       return def;
    }
@@ -73,7 +130,6 @@ class Pera {
       for (int i = 0;  i < directory.listSync().length; i++) {
          await for (String line in Utils.fileAmnis(File(directory.path + '/caudices_' + i.toString() + '.txt'))) {
             obstructionums.add(Obstructionum.fromJson(json.decode(line)));
-
             // probationems.add(Obstructionum.fromJson(json.decode(line)).probationem);
             // Obstructionum.fromJson(json.decode(line)).interioreObstructionum.liberTransactions.map((e) => e.interioreTransaction.outputs.where((element) => element.publicKey));
          }
@@ -106,7 +162,7 @@ class Pera {
                if (Utils.cognoscere(PublicKey.fromHex(Pera.curve(), oschout.publicKey), Signature.fromASN1Hex(ischin.signature), oschout)) {
                   for (TransactionOutput oschoutoschout in tx.interioreTransaction.outputs.where((element) => probationums.contains(element.publicKey))) {
                     BigInt prevValue = maschap[oschoutoschout.publicKey] ?? BigInt.zero;
-                    maschap[oschoutoschout.publicKey] = prevValue + oschoutoschout.nof;
+                    maschap[oschoutoschout.publicKey] = prevValue + oschoutoschout.gla;
                   }
                }
             }
@@ -121,10 +177,10 @@ class Pera {
         List<TransactionOutput> outputs = [];
         List<TransactionInput> inputs = [];
         for(Tuple3<int, String, TransactionOutput> out in outs) {
-          outputs.add(TransactionOutput(publica, out.item3.nof));
+          outputs.add(TransactionOutput(publica, out.item3.gla));
           inputs.add(TransactionInput(out.item1, Utils.signum(PrivateKey.fromHex(Pera.curve(), privatus), out.item3), out.item2));
         }
-        return Tuple2<InterioreTransaction, InterioreTransaction>(InterioreTransaction(true, 0, inputs, [], Utils.randomHex(32)), InterioreTransaction(false, 0, [], outputs, Utils.randomHex(32)));
+        return Tuple2<InterioreTransaction, InterioreTransaction>(InterioreTransaction(true, inputs, [], Utils.randomHex(32)), InterioreTransaction(false, [], outputs, Utils.randomHex(32)));
    }
    static Future<List<Tuple3<int, String, TransactionOutput>>> inconsumptusOutputs(bool liber, String publicKey, Directory directory) async {
       List<Tuple3<int, String, TransactionOutput>> outputs = [];
@@ -156,7 +212,7 @@ class Pera {
      List<Tuple3<int, String, TransactionOutput>> outputs = await inconsumptusOutputs(liber, publicKey, directory);
      BigInt balance = BigInt.zero;
      for (Tuple3<int, String, TransactionOutput> inOut in outputs) {
-        balance += inOut.item3.nof;
+        balance += inOut.item3.gla;
      }
      return balance;
    }
@@ -179,29 +235,29 @@ class Pera {
    static InterioreTransaction calculateTransaction(bool liber, int zeros, PrivateKey privatus, String to, BigInt value, List<Tuple3<int, String, TransactionOutput>> outs) {
      BigInt balance = BigInt.zero;
      for (Tuple3<int, String, TransactionOutput> inOut in outs) {
-        balance += inOut.item3.nof;
+        balance += inOut.item3.gla;
      }
      if (balance < value) {
-        throw ("Insufficient funds");
+        throw Error(code: 1, message: "Satis pecunia", english: "Insufficient funds");
      }
      BigInt implere = value;
      List<TransactionInput> inputs = [];
      List<TransactionOutput> outputs = [];
      for (Tuple3<int, String, TransactionOutput> inOut in outs) {
         inputs.add(TransactionInput(inOut.item1, Utils.signum(privatus, inOut.item3), inOut.item2));
-        if (inOut.item3.nof < implere) {
-           outputs.add(TransactionOutput(to, inOut.item3.nof));
-           implere -= inOut.item3.nof;
-        } else if (inOut.item3.nof > implere) {
+        if (inOut.item3.gla < implere) {
+           outputs.add(TransactionOutput(to, inOut.item3.gla));
+           implere -= inOut.item3.gla;
+        } else if (inOut.item3.gla > implere) {
            outputs.add(TransactionOutput(to, implere));
-           outputs.add(TransactionOutput(privatus.publicKey.toHex(), inOut.item3.nof - implere));
+           outputs.add(TransactionOutput(privatus.publicKey.toHex(), inOut.item3.gla - implere));
            break;
         } else {
            outputs.add(TransactionOutput(to, implere));
            break;
         }
      }
-     return InterioreTransaction(liber, zeros, inputs, outputs, Utils.randomHex(32));
+     return InterioreTransaction(liber, inputs, outputs, Utils.randomHex(32));
    }
 
 }

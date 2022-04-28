@@ -75,7 +75,7 @@ class InterioreObstructionum {
       defensio = Utils.randomHex(1),
       priorProbationem = '',
       gladiator = Gladiator(null, GladiatorOutput(List<Propter>.from([Propter.incipio(InterioreRationem.incipio(producentis))])), Utils.randomHex(32)),
-      liberTransactions = List<Transaction>.from([Transaction('', InterioreTransaction(true, 0, [], [TransactionOutput(producentis, Constantes.obstructionumPraemium)], Utils.randomHex(32)))]),
+      liberTransactions = List<Transaction>.from([Transaction('', InterioreTransaction(true, [], [TransactionOutput(producentis, Constantes.obstructionumPraemium)], Utils.randomHex(32)))]),
       fixumTransactions = [];
 
   InterioreObstructionum.efectus({
@@ -178,13 +178,32 @@ class Obstructionum {
   }
   static Future confussus(List<dynamic> args) async {
     InterioreObstructionum interioreObstructionum = args[0];
-    String toCrack = args[1];
+    List<String> toCrack = args[1];
+    print(toCrack);
     SendPort mitte = args[2];
     String probationem = '';
-      interioreObstructionum.mine();
+    bool doschoes = false;
+    while (true) {
       do {
-      probationem = HEX.encode(sha512.convert(utf8.encode(json.encode(interioreObstructionum.toJson()))).bytes);
-    } while (!probationem.startsWith('0' * interioreObstructionum.obstructionumDifficultas) || !probationem.contains(toCrack));
+        interioreObstructionum.mine();
+        probationem = HEX.encode(sha512.convert(utf8.encode(json.encode(interioreObstructionum.toJson()))).bytes);
+      } while (!probationem.startsWith('0' * interioreObstructionum.obstructionumDifficultas));
+      print('gotzeros');
+      print(probationem);
+      for (int i = 0; i < toCrack.length; i++) {
+          if (probationem.contains(toCrack[i])) {
+            doschoes = true;
+          } else {
+            doschoes = false;
+            break;
+          }
+      }
+      if (doschoes) {
+        break;
+      } else {
+        continue;
+      }
+    }
     mitte.send(Obstructionum(interioreObstructionum, probationem));
   }
   Map<String ,dynamic> toJson() => {
