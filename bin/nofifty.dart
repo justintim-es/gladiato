@@ -20,6 +20,7 @@ import 'package:nofifty/p2p.dart';
 import 'package:nofifty/errors.dart';
 import 'package:nofifty/ws.dart';
 import 'package:collection/collection.dart';
+import 'package:nofifty/unitas.dart';
 void main(List<String> arguments) async {
     var parser = ArgParser();
     parser.addOption('publica-clavis');
@@ -129,7 +130,8 @@ void main(List<String> arguments) async {
           PropterInfo propterInfo = PropterInfo(false, null, null, null);
           return Response.ok(json.encode({
             "data": propterInfo.toJson(),
-            "scriptum": propter.toJson()
+            "scriptum": propter.toJson(),
+            "gladiatorId": null
           }));
         }
       }
@@ -165,6 +167,7 @@ void main(List<String> arguments) async {
     app.post('/submittere-liber-transaction', (Request request) async {
         try {
           final SubmittereTransaction unCalcTx = SubmittereTransaction.fromJson(json.decode(await request.readAsString()));
+          BigInt gla = unCalcTx.unit * unCalcTx.gla;
           PrivateKey pk = PrivateKey.fromHex(Pera.curve(), unCalcTx.from);
           if (pk.publicKey.toHex() == unCalcTx.to) {
             return Response.forbidden(json.encode(Error(code: 2, message: "potest mittere pecuniam publicam clavem", english: "can not send money to the same public key" ).toJson()));
@@ -173,11 +176,11 @@ void main(List<String> arguments) async {
               return Response.forbidden(json.encode(Error(
                   code: 0,
                   message: "accipientis non defenditur",
-                   english: "public key is not defended"
+                  english: "public key is not defended"
               ).toJson()));
           }
           final InterioreTransaction tx =
-          await Pera.novamRem(true, 0, unCalcTx.from, unCalcTx.gla, unCalcTx.to, p2p.liberTxs, principalisDirectory);
+          await Pera.novamRem(true, 0, unCalcTx.from, gla, unCalcTx.to, p2p.liberTxs, principalisDirectory);
           ReceivePort acciperePortus = ReceivePort();
           liberTxIsolates[tx.id] = await Isolate.spawn(Transaction.quaestum, List<dynamic>.from([tx, acciperePortus.sendPort]));
           acciperePortus.listen((transaction) {

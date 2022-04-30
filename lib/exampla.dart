@@ -27,11 +27,13 @@ class SubmittereTransaction {
   final String from;
   final String to;
   final BigInt gla;
-  SubmittereTransaction(this.from, this.to, this.gla);
+  final BigInt unit;
+  SubmittereTransaction(this.from, this.to, this.gla, this.unit);
   SubmittereTransaction.fromJson(Map<String, dynamic> jsoschon):
-    to = jsoschon['to'],
+      to = jsoschon['to'],
       from = jsoschon['from'],
-      gla = BigInt.parse(jsoschon['gla']);
+      gla = BigInt.parse(jsoschon['gla']),
+      unit = BigInt.parse(jsoschon['unit']);
 }
 class RemoveTransaction {
   final bool liber;
