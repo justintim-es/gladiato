@@ -167,7 +167,13 @@ void main(List<String> arguments) async {
     app.post('/submittere-liber-transaction', (Request request) async {
         try {
           final SubmittereTransaction unCalcTx = SubmittereTransaction.fromJson(json.decode(await request.readAsString()));
-          BigInt gla = unCalcTx.unit * unCalcTx.gla;
+          BigInt glascha;
+          switch(unCalcTx.unit) {
+            case UnitasClavis.GLA: {
+                glascha = Unitas.GLA! * unCalcTx.gla;
+
+            }
+          }
           PrivateKey pk = PrivateKey.fromHex(Pera.curve(), unCalcTx.from);
           if (pk.publicKey.toHex() == unCalcTx.to) {
             return Response.forbidden(json.encode(Error(code: 2, message: "potest mittere pecuniam publicam clavem", english: "can not send money to the same public key" ).toJson()));

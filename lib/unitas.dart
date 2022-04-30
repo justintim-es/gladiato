@@ -1,4 +1,14 @@
 
+class UnitasClavis {
+  static String GLA = 'GLA';
+  static String GLAD = 'GLAD';
+  static String GLADI = 'GLADI';
+  static String GLADIA = 'GLADIA';
+  static String GLADIAT = 'GLADIAT';
+  static String GLADIATO = 'GLADIATO';
+  static String GLDIATORS = 'GLADIATORS';
+  static String GLADIATODOTRS = 'GLADIATO.RS';
+}
 class Unitas {
   static BigInt? GLA = BigInt.tryParse("10000000000000000000000000000000000000000000000000");
   static BigInt? GLAD = BigInt.tryParse("10000000000000000000000000000000000000000000");
