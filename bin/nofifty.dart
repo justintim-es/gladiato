@@ -82,13 +82,15 @@ void main(List<String> arguments) async {
         final SubmittereRationem submittereRationem = SubmittereRationem.fromJson(json.decode(await request.readAsString()));
         if(!await Pera.isPublicaClavisDefended(submittereRationem.publicaClavis, principalisDirectory)) {
             return Response.forbidden(json.encode({
-                "message": "Publica clavis iam defendi"
+                "message": "Publica clavis iam defendi",
+                "english": "Public key is already defended"
             }));
         }
         for (Propter prop in p2p.propters) {
           if (prop.interioreRationem.publicaClavis == submittereRationem.publicaClavis) {
             return Response.forbidden(json.encode({
-                "message": "publica clavem iam in piscinam"
+                "message": "publica clavem iam in piscinam",
+                "english": "Public key is already in pool"
             }));
           }
         }
